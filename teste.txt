@@ -1,0 +1,51 @@
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+
+public class RedirectTraceExample {
+    public static void main(String[] args) {
+        HttpClient client = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.NEVER) // NÃO seguir automaticamente
+                .build();
+
+        String url = "http://httpbin.org/redirect/3"; // Simula 3 redirects
+
+        try {
+            boolean seguir = true;
+            int maxRedirects = 10; // Evitar loop infinito
+            int contador = 0;
+
+            while (seguir && contador < maxRedirects) {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .GET()
+                        .build();
+
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                int statusCode = response.statusCode();
+
+                System.out.println("Código HTTP: " + statusCode + " - URL: " + url);
+
+                if (statusCode >= 300 && statusCode < 400) {
+                    // Captura o header "Location"
+                    String location = response.headers().firstValue("Location").orElse(null);
+                    if (location != null) {
+                        url = location; // Próximo salto
+                        contador++;
+                    } else {
+                        seguir = false; // Sem "Location", para o loop
+                    }
+                } else {
+                    // Última resposta (200, 404, 500, etc.)
+                    System.out.println("Conteúdo final:\n" + response.body());
+                    seguir = false;
+                }
+            }
+
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
